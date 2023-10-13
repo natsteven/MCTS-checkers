@@ -35,17 +35,7 @@ public class Player {
             this.state = state;
             this.children = new Node[state.numLegalMoves];
         }
-
-        public boolean gameOver(){
-            return state.numLegalMoves == 0;
-        }
-
-        public boolean isLeaf(){
-            return children[0] == null;
-        }
     }
-
-
 
     public static void FindBestMove(int player, char[][] board, char[] bestmove, long end) {
         
@@ -59,11 +49,6 @@ public class Player {
         // for (int i = 0; i < state.numLegalMoves; i++) state.movelist[i] = moves.get(i);
 
         Node root = new Node(state, null);
-        for (int i = 0; i < state.numLegalMoves; i++){
-            MyState nextState = new MyState(root.state);
-            PerformMove(nextState, i);
-            root.children[i] = new Node(nextState, root);
-        }
 
         while (System.currentTimeMillis() < end){
             MCTS(root, end);
@@ -79,7 +64,7 @@ public class Player {
                 choiceIndex = x;
             }
         }
-        // System.err.println("ROOT WON: " + root.won + " PLAYED: " + root.played);
+        System.err.println("ROOT," + root.won + ", " + root.played);
         // System.err.println("CHOSE CHILD " + choiceIndex);// + " WON: " + (root.children[choiceIndex].played - root.children[choiceIndex].won) + " PLAYED: " + root.children[choiceIndex].played);
         PlayerHelper.memcpy(bestmove, state.movelist[choiceIndex], PlayerHelper.MoveLength(state.movelist[choiceIndex]));
     }
@@ -87,12 +72,14 @@ public class Player {
     // search the current tree to find the node to expand based on utility function 
     static void MCTS(Node node, long end){
         if (System.currentTimeMillis() > end) return;
-        if (node.gameOver()){
+        if (node.state.numLegalMoves <= 0){
+
             node.played++;
             backprop(node.parent, 1.0, 1);
             return;
         }
-        if (node.isLeaf()){
+        if (node.children[0] == null){
+
             expand(node, end);
             return;
         }
@@ -110,20 +97,17 @@ public class Player {
         MCTS(selected, end);
     }
 
-    static double playout(MyState state, int moveLimit){
+    static double simulate(MyState state, int moveLimit){
         if (state.numLegalMoves <= 0) return 1.0;
         if (moveLimit <= 0) return 0.0;
 
         int index = random.nextInt(state.numLegalMoves);
         MyState nextState = new MyState(state);
         PerformMove(nextState, index);
-        return -playout(nextState, --moveLimit);
+        return -simulate(nextState, --moveLimit);
     }
 
     //backpropogate played values and won(flipping each time) to parent node from expansion of leaf
-    static void backprop(Node node){
-        backprop(node.parent, node.played - node.won, node.played);
-    }
 
     static void backprop(Node node, double won, int played){
         if (node == null) return;
@@ -132,24 +116,30 @@ public class Player {
         backprop(node.parent, played-won, played);
     }
 
-    //expand children of provided node by performing move
+    //expand children of leaf node and do a simulationg for each
     static void expand(Node node, long end){
+
         for (int i=0; i<node.state.numLegalMoves; i++){
             MyState nextState = new MyState(node.state);
             PerformMove(nextState, i);
             node.children[i] = new Node(nextState, node);
-            // double temp = abMove(nextState, 50, end);
-            double temp = playout(nextState, 100);
+            double temp = simulate(nextState, 100);
+
             if (temp > 0) node.won += 1.0;
-            // else if (temp == 0) node.won +=0.5;
+            else if (temp == 0) {
+                node.won +=0.5;
+                node.children[i].won += 0.5;
+            }
+            else node.children[i].won += 1.0;
             node.played++;
+            node.children[i].played++;
+
             if (System.currentTimeMillis() > end) break;
         }
-        backprop(node);
+        backprop(node.parent, node.played - node.won, node.played);
     }
 
     static double utility(Node child, Node node){
-        if (child.played < 1) return 100;
         return (double)((child.played - child.won)/child.played + 1.4*Math.sqrt(Math.log(node.played)/child.played));
     }
 }

@@ -530,12 +530,12 @@ public class PlayerHelper {
         /* Set up the board */
         ResetBoard();
 
-        long end = System.currentTimeMillis() + (long)SecPerMove*1000 - 100;
+        long end;
 
         // explicitly handling first move of each case.
         if (player1 == 1) {
             /* Find my move, update board, and write move to pipe */
-
+            end = System.currentTimeMillis() + (long)SecPerMove*1000 - 100;
             Player.FindBestMove(1,board,bestmove, end);
   
             if (bestmove[0] != 0) { /* There is a legal move */
@@ -560,6 +560,9 @@ public class PlayerHelper {
             /* Update the board to reflect opponents move */
             mlen = TextToMove(buf, move);
             PerformMove(board, move, mlen);
+
+            end = System.currentTimeMillis() + (long)SecPerMove*1000 - 100;
+
             Player.FindBestMove(2,board,bestmove, end);
             if (bestmove[0] != 0) { /* There is a legal move */
                 mlen = MoveLength(bestmove);
